@@ -69,11 +69,16 @@ func createTasks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	_, ok := tasks[task.ID]
-	if ok {
-		http.Error(w, "Task already exists", http.StatusConflict)
+	if task.ID == "" {
+		http.Error(w, "id field not found", http.StatusBadRequest)
+		return
 	}
+
+	if _, ok := tasks[task.ID]; ok {
+		http.Error(w, "Task already exists", http.StatusConflict)
+		return
+	}
+
 	if len(task.Applications) == 0 {
 		task.Applications = append(task.Applications, r.Header.Get("User-Agent"))
 	}
