@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -58,18 +57,26 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func postTasks(w http.ResponseWriter, r *http.Request) {
+func createTasks(w http.ResponseWriter, r *http.Request) {
 	var task Task
-	var buf bytes.Buffer
 
-	_, err := buf.ReadFrom(r.Body)
-	if err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(&task); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-	if err = json.Unmarshal(buf.Bytes(), &task); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
+	_, ok := tasks[task.ID]
+	if ok {
+		http.Error(w, "Task already exists", http.StatusConflict)
+	}
+	if len(task.Applications) == 0 {
+		task.Applications = append(task.Applications, r.Header.Get("User-Agent"))
+	}
 	tasks[task.ID] = task
 
 	w.Header().Set("Content-type", "application/json")
@@ -115,7 +122,7 @@ func main() {
 	// здесь регистрируйте ваши обработчики
 	// ...
 	r.Get("/tasks", getTasks)
-	r.Post("/tasks", postTasks)
+	r.Post("/tasks", createTasks)
 	r.Get("/task/{id}", getTask)
 	r.Delete("/task/{id}", deleteTask)
 
